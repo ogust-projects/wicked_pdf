@@ -3,7 +3,7 @@ require 'wicked_pdf/wicked_pdf_helper'
 require 'wicked_pdf/wicked_pdf_helper/assets'
 
 class WickedPdf
-  if defined?(Rails.env)
+  if defined?(Rails)
 
     if Rails::VERSION::MAJOR >= 5
 

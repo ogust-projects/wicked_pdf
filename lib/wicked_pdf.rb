@@ -1,5 +1,5 @@
 # wkhtml2pdf Ruby interface
-# http://wkhtmltopdf.org/
+# http://code.google.com/p/wkhtmltopdf/
 
 require 'logger'
 require 'digest/md5'
@@ -87,7 +87,7 @@ class WickedPdf
     pdf = generated_pdf_file.read
     raise "PDF could not be generated!\n Command Error: #{err}" if pdf && pdf.rstrip.empty?
     pdf
-  rescue StandardError => e
+  rescue => e
     raise "Failed to execute:\n#{command}\nError: #{e}"
   ensure
     generated_pdf_file.close! if generated_pdf_file && !return_file
@@ -96,7 +96,7 @@ class WickedPdf
   private
 
   def in_development_mode?
-    return Rails.env == 'development' if defined?(Rails.env)
+    return Rails.env == 'development' if defined?(Rails)
     RAILS_ENV == 'development' if defined?(RAILS_ENV)
   end
 
@@ -105,19 +105,19 @@ class WickedPdf
   end
 
   def print_command(cmd)
-    Rails.logger.debug '[wicked_pdf]: ' + cmd
+    p '*' * 15 + cmd + '*' * 15
   end
 
   def retrieve_binary_version
     _stdin, stdout, _stderr = Open3.popen3(@exe_path + ' -V')
     @binary_version = parse_version(stdout.gets(nil))
-  rescue StandardError
+  rescue
     DEFAULT_BINARY_VERSION
   end
 
   def parse_version(version_info)
     match_data = /wkhtmltopdf\s*(\d*\.\d*\.\d*\w*)/.match(version_info)
-    if match_data && (match_data.length == 2)
+    if match_data && (2 == match_data.length)
       Gem::Version.new(match_data[1])
     else
       DEFAULT_BINARY_VERSION
@@ -195,26 +195,24 @@ class WickedPdf
 
   def parse_header_footer(options)
     r = []
-    unless options.blank?
-      [:header, :footer].collect do |hf|
-        next if options[hf].blank?
-        opt_hf = options[hf]
-        r += make_options(opt_hf, [:center, :font_name, :left, :right], hf.to_s)
-        r += make_options(opt_hf, [:font_size, :spacing], hf.to_s, :numeric)
-        r += make_options(opt_hf, [:line], hf.to_s, :boolean)
-        if options[hf] && options[hf][:content]
-          @hf_tempfiles = [] unless defined?(@hf_tempfiles)
-          @hf_tempfiles.push(tf = WickedPdfTempfile.new("wicked_#{hf}_pdf.html"))
-          tf.write options[hf][:content]
-          tf.flush
-          options[hf][:html] = {}
-          options[hf][:html][:url] = "file:///#{tf.path}"
-        end
-        unless opt_hf[:html].blank?
-          r += make_option("#{hf}-html", opt_hf[:html][:url]) unless opt_hf[:html][:url].blank?
-        end
+    [:header, :footer].collect do |hf|
+      next if options[hf].blank?
+      opt_hf = options[hf]
+      r += make_options(opt_hf, [:center, :font_name, :left, :right], hf.to_s)
+      r += make_options(opt_hf, [:font_size, :spacing], hf.to_s, :numeric)
+      r += make_options(opt_hf, [:line], hf.to_s, :boolean)
+      if options[hf] && options[hf][:content]
+        @hf_tempfiles = [] unless defined?(@hf_tempfiles)
+        @hf_tempfiles.push(tf = WickedPdfTempfile.new("wicked_#{hf}_pdf.html"))
+        tf.write options[hf][:content]
+        tf.flush
+        options[hf][:html] = {}
+        options[hf][:html][:url] = "file:///#{tf.path}"
       end
-    end
+      unless opt_hf[:html].blank?
+        r += make_option("#{hf}-html", opt_hf[:html][:url]) unless opt_hf[:html][:url].blank?
+      end
+    end unless options.blank?
     r
   end
 
@@ -324,21 +322,18 @@ class WickedPdf
                                   :disable_smart_shrinking,
                                   :use_xserver,
                                   :no_background,
-                                  :images,
-                                  :no_images,
                                   :no_stop_slow_scripts], '', :boolean)
     end
     r
   end
 
   def find_wkhtmltopdf_binary_path
-    possible_locations = (ENV['PATH'].split(':') + %w[/usr/bin /usr/local/bin]).uniq
-    possible_locations += %w[~/bin] if ENV.key?('HOME')
+    possible_locations = (ENV['PATH'].split(':') + %w(/usr/bin /usr/local/bin ~/bin)).uniq
     exe_path ||= WickedPdf.config[:exe_path] unless WickedPdf.config.empty?
     exe_path ||= begin
       detected_path = (defined?(Bundler) ? `bundle exec which wkhtmltopdf` : `which wkhtmltopdf`).chomp
       detected_path.present? && detected_path
-    rescue StandardError
+    rescue
       nil
     end
     exe_path ||= possible_locations.map { |l| File.expand_path("#{l}/#{EXE_NAME}") }.find { |location| File.exist?(location) }

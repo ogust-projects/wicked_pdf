@@ -7,10 +7,7 @@ HTML_DOCUMENT = '<html><body>Hello World</body></html>'.freeze
 # Also, smash the returned array of options into a single string for
 # convenience in testing below.
 class WickedPdf
-  undef :binary_version
-  undef :binary_version=
   attr_accessor :binary_version
-
   def get_parsed_options(opts)
     parse_options(opts).join(' ')
   end
@@ -134,11 +131,6 @@ class WickedPdfTest < ActiveSupport::TestCase
     assert_equal '--outline-depth 5', @wp.get_parsed_options(:outline => { :outline_depth => 5 }).strip
   end
 
-  test 'should parse no_images option' do
-    assert_equal '--no-images', @wp.get_parsed_options(:no_images => true).strip
-    assert_equal '--images', @wp.get_parsed_options(:images => true).strip
-  end
-
   test 'should parse margins options' do
     [:top, :bottom, :left, :right].each do |o|
       assert_equal "--margin-#{o} 12", @wp.get_parsed_options(:margin => { o => '12' }).strip
@@ -208,7 +200,7 @@ class WickedPdfTest < ActiveSupport::TestCase
   test 'should not use double dash options for version without dashes' do
     @wp.binary_version = WickedPdf::BINARY_VERSION_WITHOUT_DASHES
 
-    %w[toc cover].each do |name|
+    %w(toc cover).each do |name|
       assert_equal @wp.get_valid_option(name), name
     end
   end
@@ -216,7 +208,7 @@ class WickedPdfTest < ActiveSupport::TestCase
   test 'should use double dash options for version with dashes' do
     @wp.binary_version = Gem::Version.new('0.11.0')
 
-    %w[toc cover].each do |name|
+    %w(toc cover).each do |name|
       assert_equal @wp.get_valid_option(name), "--#{name}"
     end
   end

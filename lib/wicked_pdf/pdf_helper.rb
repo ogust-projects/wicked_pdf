@@ -8,11 +8,7 @@ class WickedPdf
       base.class_eval do
         alias_method_chain :render, :wicked_pdf
         alias_method_chain :render_to_string, :wicked_pdf
-        if respond_to?(:after_action)
-          after_action :clean_temp_files
-        else
-          after_filter :clean_temp_files
-        end
+        after_filter :clean_temp_files
       end
     end
 
@@ -23,45 +19,46 @@ class WickedPdf
 
       base.class_eval do
         after_action :clean_temp_files
+
+        alias_method :render_without_wicked_pdf, :render
+        alias_method :render_to_string_without_wicked_pdf, :render_to_string
+
+        def render(options = nil, *args, &block)
+          render_with_wicked_pdf(options, *args, &block)
+        end
+
+        def render_to_string(options = nil, *args, &block)
+          render_to_string_with_wicked_pdf(options, *args, &block)
+        end
       end
-    end
-
-    def render(options = nil, *args, &block)
-      render_with_wicked_pdf(options, *args, &block)
-    end
-
-    def render_to_string(options = nil, *args, &block)
-      render_to_string_with_wicked_pdf(options, *args, &block)
     end
 
     def render_with_wicked_pdf(options = nil, *args, &block)
       if options.is_a?(Hash) && options.key?(:pdf)
+        log_pdf_creation
         options[:basic_auth] = set_basic_auth(options)
         make_and_send_pdf(options.delete(:pdf), (WickedPdf.config || {}).merge(options))
-      elsif respond_to?(:render_without_wicked_pdf)
-        # support alias_method_chain (module included)
-        render_without_wicked_pdf(options, *args, &block)
       else
-        # support inheritance (module prepended)
-        method(:render).super_method.call(options, *args, &block)
+        render_without_wicked_pdf(options, *args, &block)
       end
     end
 
     def render_to_string_with_wicked_pdf(options = nil, *args, &block)
       if options.is_a?(Hash) && options.key?(:pdf)
+        log_pdf_creation
         options[:basic_auth] = set_basic_auth(options)
         options.delete :pdf
         make_pdf((WickedPdf.config || {}).merge(options))
-      elsif respond_to?(:render_to_string_without_wicked_pdf)
-        # support alias_method_chain (module included)
-        render_to_string_without_wicked_pdf(options, *args, &block)
       else
-        # support inheritance (module prepended)
-        method(:render_to_string).super_method.call(options, *args, &block)
+        render_to_string_without_wicked_pdf(options, *args, &block)
       end
     end
 
     private
+
+    def log_pdf_creation
+      logger.info '*' * 15 + 'WICKED' + '*' * 15 if logger && logger.respond_to?(:info)
+    end
 
     def set_basic_auth(options = {})
       options[:basic_auth] ||= WickedPdf.config.fetch(:basic_auth) { false }
